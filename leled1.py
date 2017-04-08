@@ -1,230 +1,73 @@
 #!/usr/bin/env python3
 
 from collections import namedtuple
+import colorsys
+import itertools
+from multiprocessing.pool import ThreadPool
+import time
 
+import gizeh
 import numpy as np
 from scipy import misc
 from scipy import ndimage
 
-colour_file = '/sys/bus/hid/drivers/razerkbd/0003:1532:0220.000B/matrix_custom_frame'
-custom_mode = '/sys/bus/hid/drivers/razerkbd/0003:1532:0220.000B/matrix_effect_custom'
+from razer_keyboard.color import Color
+from razer_keyboard.keyboard import Keyboard, create_color_store
+from razer_keyboard.maps import *
 
-keymap = {
-    "'": (3, 12),
-    ',': (4, 10),
-    '-': (1, 12),
-    '.': (4, 11),
-    '/': (4, 12),
-    '0': (1, 11),
-    '1': (1, 2),
-    '2': (1, 3),
-    '3': (1, 4),
-    '4': (1, 5),
-    '5': (1, 6),
-    '6': (1, 7),
-    '7': (1, 8),
-    '8': (1, 9),
-    '9': (1, 10),
-    ';': (3, 11),
-    '=': (1, 13),
-    '[': (2, 12),
-    '\\': (2, 15),
-    ']': (2, 13),
-    '`': (1, 1),
-    'a': (3, 2),
-    'b': (4, 7),
-    'backspace': (1, 15),
-    'c': (4, 5),
-    'caps': (3, 1),
-    'd': (3, 4),
-    'del': (0, 15),
-    'down': (5, 14),
-    'e': (2, 4),
-    'enter': (3, 15),
-    'esc': (0, 1),
-    'f': (3, 5),
-    'f1': (0, 2),
-    'f10': (0, 11),
-    'f11': (0, 12),
-    'f12': (0, 13),
-    'f2': (0, 3),
-    'f3': (0, 4),
-    'f4': (0, 5),
-    'f5': (0, 6),
-    'f6': (0, 7),
-    'f7': (0, 8),
-    'f8': (0, 9),
-    'f9': (0, 10),
-    'g': (3, 6),
-    'h': (3, 7),
-    'i': (2, 9),
-    'ins': (0, 14),
-    'j': (3, 8),
-    'k': (3, 9),
-    'l': (3, 10),
-    'lalt': (5, 4),
-    'lctrl': (5, 1),
-    'left': (5, 12),
-    'lfn': (5, 2),
-    'lshift': (4, 1),
-    'lsuper': (5, 3),
-    'm': (4, 9),
-    'n': (4, 8),
-    'o': (2, 10),
-    'p': (2, 11),
-    'q': (2, 2),
-    'r': (2, 5),
-    'ralt': (5, 9),
-    'rctrl': (5, 11),
-    'rfn': (5, 10),
-    'right': (5, 15),
-    'rshift': (4, 15),
-    's': (3, 3),
-    'space': (5, 6),
-    't': (2, 6),
-    'tab': (2, 1),
-    'u': (2, 8),
-    'up': (5, 13),
-    'v': (4, 6),
-    'w': (2, 3),
-    'x': (4, 4),
-    'y': (2, 7),
-    'z': (4, 3)
-}
-
-location_map = {
-    'esc':       ((1,   1), (43,  31)),
-    'f1':        ((49,  1), (93,  31)),
-    'f2':        ((100, 1), (142, 31)),
-    'f3':        ((148, 1), (191, 31)),
-    'f4':        ((198, 1), (241, 31)),
-    'f5':        ((248, 1), (289, 31)),
-    'f6':        ((298, 1), (340, 31)),
-    'f7':        ((346, 1), (388, 31)),
-    'f8':        ((397, 1), (439, 31)),
-    'f9':        ((445, 1), (487, 31)),
-    'f10':       ((496, 1), (538, 31)),
-    'f11':       ((545, 1), (587, 31)),
-    'f12':       ((595, 1), (636, 31)),
-    'ins':       ((644, 1), (686, 31)),
-    'del':       ((694, 1), (736, 31)),
-
-    '`':         ((1,   38), (43,  78)),
-    '1':         ((49,  38), (93,  78)),
-    '2':         ((100, 38), (142, 78)),
-    '3':         ((148, 38), (191, 78)),
-    '4':         ((198, 38), (241, 78)),
-    '5':         ((248, 38), (289, 78)),
-    '6':         ((298, 38), (340, 78)),
-    '7':         ((346, 38), (388, 78)),
-    '8':         ((397, 38), (439, 78)),
-    '9':         ((445, 38), (487, 78)),
-    '0':         ((496, 38), (538, 78)),
-    '-':         ((545, 38), (587, 78)),
-    '=':         ((595, 38), (636, 78)),
-    'backspace': ((644, 38), (736, 78)),
-
-    'tab':       ((1,   84), (68,  124)),
-    'q':         ((75,  84), (117, 124)),
-    'w':         ((125, 84), (166, 124)),
-    'e':         ((174, 84), (216, 124)),
-    'r':         ((224, 84), (265, 124)),
-    't':         ((273, 84), (315, 124)),
-    'y':         ((323, 84), (363, 124)),
-    'u':         ((371, 84), (414, 124)),
-    'i':         ((422, 84), (463, 124)),
-    'o':         ((471, 84), (513, 124)),
-    'p':         ((520, 84), (562, 124)),
-    '[':         ((569, 84), (612, 124)),
-    ']':         ((618, 84), (661, 124)),
-    '\\':        ((669, 84), (736, 124)),
-
-    'caps':      ((1, 132), (80, 171)),
-    'a':         ((87, 132), (128, 171)),
-    's':         ((136, 132), (178, 171)),
-    'd':         ((186, 132), (228, 171)),
-    'f':         ((236, 132), (277, 171)),
-    'g':         ((285, 132), (326, 171)),
-    'h':         ((335, 132), (376, 171)),
-    'j':         ((384, 132), (425, 171)),
-    'k':         ((434, 132), (475, 171)),
-    'l':         ((483, 132), (525, 171)),
-    ';':         ((533, 132), (574, 171)),
-    "'":         ((581, 132), (624, 171)),
-    'enter':     ((631, 132), (736, 171)),
-
-    'lshift':    ((1, 179), (104, 219)),
-    'z':         ((111, 179), (153, 219)),
-    'c':         ((162, 179), (203, 219)),
-    'x':         ((210, 179), (252, 219)),
-    'v':         ((261, 179), (302, 219)),
-    'b':         ((310, 179), (352, 219)),
-    'n':         ((359, 179), (401, 219)),
-    'm':         ((409, 179), (450, 219)),
-    ',':         ((458, 179), (500, 219)),
-    '.':         ((507, 179), (549, 219)),
-    '/':         ((558, 179), (599, 219)),
-    'rshift':    ((606, 179), (746, 219)),
-
-    'lctrl':    ((1, 226), (55, 274)),
-    'lfn':      ((62, 226), (104, 274)),
-    'lsuper':   ((112, 226), (154, 274)),
-    'lalt':     ((161, 226), (204, 274)),
-    'space':    ((210, 226), (450, 274)),
-    'ralt':     ((458, 226), (501, 274)),
-    'rfn':      ((508, 226), (550, 274)),
-    'rctrl':    ((557, 226), (598, 274)),
-    'left':     ((607, 226), (643, 274)),
-    'up':       ((650, 226), (692, 249)),
-    'down':     ((650, 250), (692, 274)),
-    'right':    ((699, 226), (736, 274)),
-}
-
-Color = namedtuple("Color", ['red', 'green', 'blue'])
-
-current_colors = [[Color(0, 0, 0)] * 16 for _ in range(6)]
-
-def write_keys(colors):
-    with open(custom_mode, 'wb') as custom_mode_file:
-        with open(colour_file, 'wb') as row_file:
-            for r in range(6):
-                row_bytes = bytes((r, 0x00, 0x0F))
-                row_bytes += b''.join(map(bytes, colors[r]))
-                row_file.write(row_bytes)
-                custom_mode_file.write(bytes('1', 'ascii'))
-
-5
-def set_key_rc(r, c, color=Color(0, 0, 0)):
-    global current_colors
-    current_colors[r][c] = color
-
-
-def set_key(key, color=Color(0, 0, 0)):
-    r, c = keymap[key]
-    set_key_rc(r, c, color)
+keyboard = Keyboard()
 
 def set_image(image):
-	image = misc.imresize(image, (736, 274))
-	for key, ((ulx, uly), (brx, bry)) in location_map.items():
-		avg = np.mean(image[ulx:brx, uly:bry], axis=(0, 1), dtype=np.int)[:3]
+    image = image.transpose()
+    image = misc.imresize(image, (736, 274))
+    for key, ((ulx, uly), (brx, bry)) in location_map.items():
+        avg = np.mean(image[ulx:brx, uly:bry], axis=(0, 1), dtype=np.int)[:3]
+        set_key(key, Color(*avg))
 
-		print(avg)
-		set_key(key, Color(*avg))
 
-set_image(ndimage.imread("/home/zander/Downloads/rainbow.jpg"))
+def get_image():
+    surface = gizeh.Surface(width=736, height=274)
 
-# set_key('j', Color(255, 0, 255))
-# set_key('c', Color(255, 255, 0))
-# set_key('b', Color(255, 128, 0))
+    for key, ((ulx, uly), (brx, bry)) in location_map.items():
+        gizeh.rectangle(lx=(brx - ulx), ly=(bry - uly), xy=((ulx + brx) / 2, (uly + bry) / 2), fill=tuple(map(lambda x: x / 255, get_key(key)))).draw(surface)
+
+    surface.write_to_png("out.png")
+
+# # image = ndimage.imread("/home/zander/Downloads/rainbowbars.jpg")
+# image = ndimage.imread("/home/zander/Downloads/prop.png")
+
+# image = misc.imresize(image, (1000, 1000))
+# keyboard.set_image(image)
+# keyboard.write_keys()
+
+# pool = ThreadPool()
+# images = pool.map(lambda i: keyboard.set_image(ndimage.interpolation.rotate(image, i, reshape=False), create_color_store()), range(0, 361, 5))
+
+# for img in itertools.cycle(images):
+#     keyboard.set_store(img)
+#     keyboard.write_keys()
+#     # get_image()
+
+#     time.sleep(1 / 60)
+
+
+# keyboard.set_key('j', Color(255, 0, 255))
+# keyboard.set_key('c', Color(255, 255, 0))
+# keyboard.set_key('b', Color(255, 128, 0))
+# keyboard.write_keys()
+
 
 # for i, k in enumerate(keymap):
-#     set_key(k, Color(i * 2, i, 255 - i * 2))
+#     keyboard.set_key(k, Color(i * 2, i, 255 - i * 2))
+# keyboard.write_keys()
 
-# for r in range(6):
-#     for c in range(16):
-#         set_key_rc(r, c, Color(c * 16, 255 - c * 16, r * 42))
+while True:
+    for i in range(0, 256, 5):
+        for r in range(6):
+            for c in range(16):
+                rgb = colorsys.hsv_to_rgb(c / 15 + i/255, 1 - r / 20, 1)
+                keyboard.set_key_rc(r, c, Color(*map(lambda x: int(x * 255), rgb)))
 
-
-
-
-write_keys(current_colors)
+        keyboard.write_keys()
+        print("Written {}".format(i))
+        time.sleep(1 / 60)
