@@ -1,13 +1,19 @@
-from .color import Color
-from .maps import *
+import os
 
 import numpy as np
 from scipy import misc
 from scipy import ndimage
 
-driver_base = "/sys/bus/hid/drivers/razerkbd/0003:1532:0220.0003"
-colour_file = '{}/matrix_custom_frame'
-custom_mode_file = '{}/matrix_effect_custom'
+from .color import Color
+from .maps import *
+
+def find_keyboard_dir(base="/sys/bus/hid/drivers/razerkbd/", prefix="0003:1532:0220."):
+    return os.path.join(base, max(f for f in os.listdir(base) if f.startswith(prefix)))
+
+# driver_base = "/sys/bus/hid/drivers/razerkbd/0003:1532:0220.0004"
+driver_base = find_keyboard_dir()
+colour_filename = '{}/matrix_custom_frame'.format(driver_base)
+custom_mode_filename = '{}/matrix_effect_custom'.format(driver_base)
 
 
 def create_color_store():
@@ -17,14 +23,11 @@ def create_color_store():
 class Keyboard:
     """docstring for Keyboard"""
     def __init__(self, driver_base=driver_base):
-        self.colour_file = '{}/matrix_custom_frame'.format(driver_base)
-        self.custom_mode_file = '{}/matrix_effect_custom'.format(driver_base)
-
         self.colors = create_color_store()
 
     def write_keys(self):
-        with open(self.custom_mode_file, 'wb') as custom_mode_file:
-            with open(self.colour_file, 'wb') as row_file:
+        with open(custom_mode_filename, 'wb') as custom_mode_file:
+            with open(colour_filename, 'wb') as row_file:
                 for r in range(6):
                     row_bytes = bytes((r, 0x00, 0x0F))
                     row_bytes += b''.join(map(Color.get_bytes, self.colors[r]))

@@ -6,8 +6,11 @@ class Color:
         self.blue = blue
         
 
-    def get_floats(self):
-        return (self.red / 255, self.green / 255, self.blue / 255)
+    def get_floats(self, alpha=False):
+        if alpha:
+            return (self.red / 255, self.green / 255, self.blue / 255, 255)
+        else:
+            return (self.red / 255, self.green / 255, self.blue / 255)
         
 
     def get_ints(self):
