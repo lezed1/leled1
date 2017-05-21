@@ -9,13 +9,17 @@ import time
 
 import gizeh
 import numpy as np
-import pynput
 from scipy import misc
 from scipy import ndimage
 
 from razer_keyboard.color import Color
 from razer_keyboard.keyboard import Keyboard, create_color_store
 from razer_keyboard.maps import *
+
+try:
+    import pynput
+except:
+    pass
 
 keyboard = Keyboard()
 
@@ -92,27 +96,29 @@ def on_press(key):
 
     center["x"], center["y"] = (l + r) / 2, (t + b) / 2
 
-
-with pynput.keyboard.Listener(on_press=on_press) as listener:
+try:
+    listener = pynput.keyboard.Listener(on_press=on_press)
     print(listener)
     # print(help(listener))
+except:
+    pass
 
-    while True:
-        for i in range(0, width, 5):
-            ii = (width - i)
-            for key, ((l, t), (r, b)) in location_map.items():
-                x = (l + r) / 2
-                y = (t + b) / 2
+while True:
+    for i in range(0, width, 5):
+        ii = (width - i)
+        for key, ((l, t), (r, b)) in location_map.items():
+            x = (l + r) / 2
+            y = (t + b) / 2
 
-                rad = ((center["x"] - x) ** 2 + (center["y"] - y) ** 2) ** 0.5
+            rad = ((center["x"] - x) ** 2 + (center["y"] - y) ** 2) ** 0.5
 
-                rgb = colorsys.hsv_to_rgb((rad * 1.5 + ii) / width, 1, 1)
-                r, c = keymap[key]
-                keyboard.set_key_rc(r, c, Color(*map(lambda x: int(x * 255), rgb)))
+            rgb = colorsys.hsv_to_rgb((rad * 1.5 + ii) / width, 1, 1)
+            r, c = keymap[key]
+            keyboard.set_key_rc(r, c, Color(*map(lambda x: int(x * 255), rgb)))
 
-            # asdf()
+        # asdf()
 
-            keyboard.write_keys()
-            # get_image()
-            print("Written {}".format(i))
-            time.sleep(1 / 60)
+        keyboard.write_keys()
+        # get_image()
+        print("Written {}".format(i))
+        time.sleep(1 / 60)
